@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Protobuf Wire Decoder // protobuf-decoder.slippylabs.com</title>
+<meta name="description" content="Paste raw protobuf bytes as hex or base64 and read the message without the .proto — field numbers, wire types, every plausible interpretation, nested messages, and a generated schema skeleton. Runs entirely in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://protobuf-decoder.slippylabs.com/">
+<meta property="og:title" content="Protobuf Wire Decoder // protobuf-decoder.slippylabs.com">
+<meta property="og:description" content="Paste raw protobuf bytes as hex or base64 and read the message without the .proto — field numbers, wire types, every plausible interpretation, nested messages, and a generated schema skeleton. Runs entirely in your browser.">
+<meta property="og:image" content="https://protobuf-decoder.slippylabs.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Protobuf Wire Decoder // protobuf-decoder.slippylabs.com">
+<meta name="twitter:description" content="Paste raw protobuf bytes as hex or base64 and read the message without the .proto — field numbers, wire types, every plausible interpretation, nested messages, and a generated schema skeleton. Runs entirely in your browser.">
+<meta name="twitter:image" content="https://protobuf-decoder.slippylabs.com/og-image.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2234%22%20r%3D%2222%22%20fill%3D%22%231c8a52%22%20stroke%3D%22%2339ff8f%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2216%22%20r%3D%228%22%20fill%3D%22%231c8a52%22%20stroke%3D%22%2339ff8f%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2244%22%20cy%3D%2216%22%20r%3D%228%22%20fill%3D%22%231c8a52%22%20stroke%3D%22%2339ff8f%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E">
+<meta name="theme-color" content="#050b10">
+<link rel="stylesheet" href="style.css?v=1">
+<script>/* perf-lite: drop blend/blur effects on low-power devices. ?fx=lite or ?fx=full to override (persisted). */
+(function(){try{var k="slippy-fx",m=location.search.match(/[?&]fx=(lite|full)/),v=m?m[1]:localStorage.getItem(k);if(m)localStorage.setItem(k,v);if(v==="lite"||(v!=="full"&&(navigator.hardwareConcurrency||8)<=2))document.documentElement.classList.add("perf-lite");}catch(e){}})();</script>
+</head>
+<body>
+
+<div class="starfield"></div>
+<div class="scanlines"></div>
+
+<main class="page-wrap">
+  <div class="hud-panel wide">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="callsign-row">
+      <div class="toad-avatar-wrap">
+        <svg class="toad-avatar" width="46" height="46" viewBox="0 0 64 64">
+          <circle cx="32" cy="34" r="22" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="44" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="3.5" fill="#050b10"/>
+          <circle cx="44" cy="16" r="3.5" fill="#050b10"/>
+          <ellipse cx="24" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <ellipse cx="40" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <circle cx="24" cy="30" r="1.4" fill="#39ff8f"/>
+          <circle cx="40" cy="30" r="1.4" fill="#39ff8f"/>
+          <path d="M22 42 Q32 48 42 42" stroke="#050b10" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="lock-reticle"></div>
+      </div>
+      <span class="callsign">Workshop Division // Tool</span>
+      <div class="nav-links">
+        <a href="https://projects.slippylabs.com/" class="logout-link">← Archive</a>
+      </div>
+    </div>
+
+
+    <h1>PROTOBUF WIRE DECODER</h1>
+    <p class="subtitle">The wire format carries field <em>numbers</em>, not names, so bytes alone can be decoded a long way without the schema &mdash; which is exactly what <code>protoc --decode_raw</code> does, and what this does without installing anything.</p>
+
+    <div class="tool-field-row">
+      <label class="tool-field-label" for="input-text">Bytes — hex, base64, or <code>\x</code> escapes</label>
+      <textarea class="tool-textarea pb-input" id="input-text" spellcheck="false" rows="4"
+                placeholder="0a06736c69707079102a…   or   CgZzbGlwcHkQKg=="></textarea>
+    </div>
+    <div class="tool-controls">
+      <select class="tool-select" id="mode-select">
+        <option value="auto">Detect format</option>
+        <option value="hex">Hex</option>
+        <option value="base64">Base64</option>
+      </select>
+      <select class="tool-select" id="sample-select"></select>
+      <button class="tool-btn ghost" id="clear-btn">Clear</button>
+    </div>
+    <p class="tool-note" id="parse-error" role="alert"></p>
+
+    <div class="net-grid" id="stat-host"></div>
+    <p class="tool-note" id="roundtrip-note"></p>
+
+    <div class="cert-section-label">Fields</div>
+    <div class="tool-checks">
+      <label class="tool-check"><input type="checkbox" id="nested-check" checked> Decode length-delimited fields as nested messages when they parse</label>
+      <label class="tool-check"><input type="checkbox" id="alt-check" checked> Show every interpretation</label>
+    </div>
+    <div class="pb-tree" id="tree-host"></div>
+
+    <div class="cert-section-label">Bytes</div>
+    <div class="pb-hex" id="hex-host"></div>
+    <p class="tool-note">
+      Hover a field above to light up the bytes it came from. The tag byte carries both the field
+      number and the wire type &mdash; <code>(number &lt;&lt; 3) | wire_type</code> &mdash; which is
+      why field 1 with a length-delimited payload always starts <code>0a</code>.
+    </p>
+
+    <div class="cert-section-label">Inferred schema</div>
+    <pre class="tool-output" id="proto-out"></pre>
+    <p class="tool-note">
+      A starting point, not the truth: the wire format cannot tell you a field's name, whether a
+      number was meant as signed, or whether a repeated field was packed by choice. Anything marked
+      with a comment is a guess the bytes cannot settle.
+    </p>
+
+    <div class="cert-section-label">The five wire types</div>
+    <div class="net-table-wrap">
+      <table class="net-table" id="wire-table"></table>
+    </div>
+    <p class="tool-note">
+      Wire type 2 is the ambiguous one: a string, a byte blob, a nested message and a packed
+      repeated field all look identical on the wire. This page tries all four and shows you which
+      ones are self-consistent &mdash; a payload that parses cleanly as a message usually is one,
+      but a short string of the right shape can parse as a message too, and there is no way to be
+      sure without the schema.
+    </p>
+    <div class="comm-window">
+      <div class="comm-portrait">
+        <svg width="36" height="36" viewBox="0 0 64 64">
+          <circle cx="32" cy="34" r="22" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="44" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="3.5" fill="#050b10"/>
+          <circle cx="44" cy="16" r="3.5" fill="#050b10"/>
+          <ellipse cx="24" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <ellipse cx="40" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <circle cx="24" cy="30" r="1.4" fill="#39ff8f"/>
+          <circle cx="40" cy="30" r="1.4" fill="#39ff8f"/>
+          <path d="M22 42 Q32 48 42 42" stroke="#050b10" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="comm-body">
+        <div class="comm-label"><span class="dot"></span> Incoming Transmission &mdash; Slippy</div>
+        <p>&quot;A field number, a wire type, and a length. Everything else is convention.&quot;</p>
+      </div>
+    </div>
+
+    <a href="https://projects.slippylabs.com/" class="hud-btn">← Back to Archive</a>
+  </div>
+</main>
+
+
+<script>
+/* ---- the protobuf wire format ----------------------------------------------
+   Every field is a varint tag — (field_number << 3) | wire_type — followed by a
+   payload whose shape depends on the wire type alone:
+
+     0  VARINT   a base-128 varint: int32/64, uint32/64, sint32/64, bool, enum
+     1  I64      eight bytes, little endian: fixed64, sfixed64, double
+     2  LEN      a varint length, then that many bytes: string, bytes, an
+                 embedded message, or a packed repeated field
+     3  SGROUP   start of a group (deprecated, still legal)
+     4  EGROUP   end of a group
+     5  I32      four bytes, little endian: fixed32, sfixed32, float
+
+   Nothing on the wire says which of a wire type's meanings was intended, so the
+   decoder computes all of them and lets the reader choose. Everything here is
+   BigInt: a uint64 does not fit in a double, and quietly rounding someone's ID
+   is the one thing a tool like this must not do. */
+
+const WIRE_TYPES = {
+  0: { name: 'VARINT', meanings: 'int32, int64, uint32, uint64, sint32, sint64, bool, enum' },
+  1: { name: 'I64', meanings: 'fixed64, sfixed64, double' },
+  2: { name: 'LEN', meanings: 'string, bytes, embedded message, packed repeated' },
+  3: { name: 'SGROUP', meanings: 'start group (deprecated)' },
+  4: { name: 'EGROUP', meanings: 'end group (deprecated)' },
+  5: { name: 'I32', meanings: 'fixed32, sfixed32, float' },
+};
+
+const MAX_FIELD_NUMBER = 536870911;   // 2^29 - 1
+
+function readVarint(bytes, pos) {
+  let shift = 0n;
+  let value = 0n;
+  let i = pos;
+  while (i < bytes.length) {
+    const b = bytes[i];
+    value |= BigInt(b & 0x7f) << shift;
+    i += 1;
+    if (!(b & 0x80)) return { value, next: i, length: i - pos };
+    shift += 7n;
+    if (shift > 63n) throw new Error(`varint at byte ${pos} is longer than 10 bytes`);
+  }
+  throw new Error(`varint at byte ${pos} runs off the end of the input`);
+}
+
+function encodeVarint(value) {
+  const out = [];
+  let v = value;
+  do {
+    let b = Number(v & 0x7fn);
+    v >>= 7n;
+    if (v > 0n) b |= 0x80;
+    out.push(b);
+  } while (v > 0n);
+  return out;
+}
+
+/* A varint is minimal when it is as short as it can be. The official encoders
+   always emit minimal varints, so an input that is not minimal either came from
+   somewhere unusual or is not protobuf at all — worth saying rather than
+   silently normalising on the way out. */
+function isMinimalVarint(bytes, pos, length, value) {
+  return encodeVarint(value).length === length;
+}
+
+const toSigned64 = (u) => (u >= 1n << 63n ? u - (1n << 64n) : u);
+const zigzagDecode = (u) => (u >> 1n) ^ -(u & 1n);
+
+const U32 = new Uint32Array(2);
+const F64 = new Float64Array(U32.buffer);
+const F32 = new Float32Array(U32.buffer);
+
+function readDouble(bytes, pos) {
+  U32[0] = bytes[pos] | (bytes[pos + 1] << 8) | (bytes[pos + 2] << 16) | (bytes[pos + 3] << 24);
+  U32[1] = bytes[pos + 4] | (bytes[pos + 5] << 8) | (bytes[pos + 6] << 16) | (bytes[pos + 7] << 24);
+  return F64[0];
+}
+function readFloat(bytes, pos) {
+  U32[0] = bytes[pos] | (bytes[pos + 1] << 8) | (bytes[pos + 2] << 16) | (bytes[pos + 3] << 24);
+  return F32[0];
+}
+
+function bytesToHex(bytes, from = 0, to = bytes.length) {
+  let s = '';
+  for (let i = from; i < to; i++) s += bytes[i].toString(16).padStart(2, '0');
+  return s;
+}
+
+/* Valid UTF-8 and mostly printable: the test for "this is probably a string".
+   Control characters other than tab/newline are the giveaway that it is not. */
+function asText(bytes, from, to) {
+  try {
+    const slice = bytes.subarray(from, to);
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(slice);
+    let printable = 0;
+    for (const ch of text) {
+      const c = ch.codePointAt(0);
+      if (c === 9 || c === 10 || c === 13 || c >= 32) printable += 1;
+    }
+    const ratio = text.length ? printable / [...text].length : 1;
+    return { text, printable: ratio >= 0.95 };
+  } catch (e) {
+    return null;
+  }
+}
+
+/* Try the payload of a LEN field as a packed repeated field. Packed varints
+   must consume the payload exactly; packed fixed widths must divide it. */
+function asPacked(bytes, from, to) {
+  const out = {};
+  const len = to - from;
+  try {
+    const values = [];
+    let p = from;
+    while (p < to) {
+      const v = readVarint(bytes, p);
+      values.push(v.value);
+      p = v.next;
+    }
+    if (p === to && values.length) out.varint = values;
+  } catch (e) { /* not a run of varints */ }
+  if (len % 4 === 0 && len > 0) {
+    const f32 = [];
+    const i32 = [];
+    for (let p = from; p < to; p += 4) {
+      f32.push(readFloat(bytes, p));
+      i32.push(bytes[p] | (bytes[p + 1] << 8) | (bytes[p + 2] << 16) | (bytes[p + 3] << 24));
+    }
+    out.fixed32 = i32.map((v) => BigInt(v >>> 0));
+    out.float = f32;
+  }
+  if (len % 8 === 0 && len > 0) {
+    const f64 = [];
+    for (let p = from; p < to; p += 8) f64.push(readDouble(bytes, p));
+    out.double = f64;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/* Read exactly one field. Returning `endGroup` rather than throwing on wire
+   type 4 is what lets groups work: the group reader treats it as the closing
+   bracket, and the top-level reader treats it as an error. An earlier version
+   tried to read one field by parsing the whole remaining buffer and keeping the
+   first result, which blew up on the first group it met — the end tag is inside
+   that buffer and has no start tag from the inner parse's point of view. */
+function readField(bytes, pos, end, depth) {
+  const headerStart = pos;
+  const tag = readVarint(bytes, pos);
+  let nonMinimal = isMinimalVarint(bytes, pos, tag.length, tag.value) ? 0 : 1;
+  pos = tag.next;
+  const wireType = Number(tag.value & 7n);
+  const number = Number(tag.value >> 3n);
+  if (number === 0) throw new Error(`field number 0 at byte ${headerStart} is not legal`);
+  if (number > MAX_FIELD_NUMBER) throw new Error(`field number ${number} is out of range`);
+  if (!WIRE_TYPES[wireType]) {
+    throw new Error(`wire type ${wireType} at byte ${headerStart} does not exist`);
+  }
+  if (wireType === 4) return { endGroup: true, number, next: pos, nonMinimal };
+
+  const field = { number, wireType, headerStart, dataStart: pos };
+  if (wireType === 0) {
+    const v = readVarint(bytes, pos);
+    if (!isMinimalVarint(bytes, pos, v.length, v.value)) nonMinimal += 1;
+    field.varint = v.value;
+    pos = v.next;
+  } else if (wireType === 1 || wireType === 5) {
+    const width = wireType === 1 ? 8 : 4;
+    if (pos + width > end) {
+      throw new Error(`fixed${width * 8} field ${number} runs off the end`);
+    }
+    field.fixed = bytes.subarray(pos, pos + width);
+    pos += width;
+  } else if (wireType === 2) {
+    const len = readVarint(bytes, pos);
+    if (!isMinimalVarint(bytes, pos, len.length, len.value)) nonMinimal += 1;
+    const payloadStart = len.next;
+    const payloadEnd = payloadStart + Number(len.value);
+    if (payloadEnd > end) {
+      throw new Error(`field ${number} says it is ${len.value} bytes, which runs past the end`);
+    }
+    field.dataStart = payloadStart;
+    field.payload = { start: payloadStart, end: payloadEnd };
+    pos = payloadEnd;
+  } else if (wireType === 3) {
+    if (depth > 64) throw new Error('groups nested too deeply');
+    const inner = decodeGroup(bytes, pos, end, number, depth + 1);
+    field.group = inner.fields;
+    field.dataStart = pos;
+    nonMinimal += inner.nonMinimal;
+    pos = inner.next;
+  }
+  field.dataEnd = pos;
+  return { field, next: pos, nonMinimal };
+}
+
+/* Decode a run of fields between two offsets. */
+function decodeFields(bytes, start, end, depth = 0) {
+  const fields = [];
+  let pos = start;
+  let nonMinimal = 0;
+  while (pos < end) {
+    const r = readField(bytes, pos, end, depth);
+    if (r.endGroup) {
+      throw new Error(`end-group tag for field ${r.number} with no matching start`);
+    }
+    fields.push(r.field);
+    nonMinimal += r.nonMinimal;
+    pos = r.next;
+  }
+  return { fields, nonMinimal };
+}
+
+/* A group runs until its own end tag; unlike a length-delimited field it does
+   not say in advance how long it is. */
+function decodeGroup(bytes, start, end, groupNumber, depth) {
+  const fields = [];
+  let pos = start;
+  let nonMinimal = 0;
+  while (pos < end) {
+    const r = readField(bytes, pos, end, depth);
+    nonMinimal += r.nonMinimal;
+    if (r.endGroup) {
+      if (r.number !== groupNumber) {
+        throw new Error(`group ${groupNumber} ended with a tag for group ${r.number}`);
+      }
+      return { fields, next: r.next, nonMinimal };
+    }
+    fields.push(r.field);
+    pos = r.next;
+  }
+  throw new Error(`group ${groupNumber} never ends`);
+}
+
+/* Everything a reader might want from one field, computed rather than guessed.
+   For LEN fields this recurses: the payload is offered as a nested message when
+   it parses completely, as text when it is valid UTF-8, and as a packed
+   repeated field when the lengths work out. */
+function interpret(bytes, field, depth = 0) {
+  const out = { ...field, alternatives: {} };
+  if (field.wireType === 0) {
+    const u = field.varint;
+    out.alternatives.uint64 = u.toString();
+    const s = toSigned64(u);
+    if (s !== u) out.alternatives.int64 = s.toString();
+    out.alternatives.sint64 = zigzagDecode(u).toString();
+    if (u === 0n || u === 1n) out.alternatives.bool = u === 1n ? 'true' : 'false';
+    out.primary = u.toString();
+  } else if (field.wireType === 1) {
+    const b = field.fixed;
+    let u = 0n;
+    for (let i = 7; i >= 0; i--) u = (u << 8n) | BigInt(b[i]);
+    out.alternatives.fixed64 = u.toString();
+    out.alternatives.sfixed64 = toSigned64(u).toString();
+    const d = readDouble(bytes, field.dataStart);
+    out.alternatives.double = Number.isFinite(d) ? String(d) : String(d);
+    out.primary = out.alternatives.double;
+  } else if (field.wireType === 5) {
+    const b = field.fixed;
+    const u = (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
+    out.alternatives.fixed32 = String(u);
+    out.alternatives.sfixed32 = String(u | 0);
+    const f = readFloat(bytes, field.dataStart);
+    out.alternatives.float = String(f);
+    out.primary = out.alternatives.float;
+  } else if (field.wireType === 2) {
+    const { start, end } = field.payload;
+    out.length = end - start;
+    const text = asText(bytes, start, end);
+    if (text) {
+      out.alternatives.string = text.text;
+      out.textLooksReal = text.printable;
+    }
+    out.alternatives.bytes = bytesToHex(bytes, start, end);
+    if (end > start && depth < 32) {
+      try {
+        const sub = decodeFields(bytes, start, end, depth + 1);
+        if (sub.fields.length) {
+          out.nested = sub.fields.map((f) => interpret(bytes, f, depth + 1));
+          out.nestedNonMinimal = sub.nonMinimal;
+        }
+      } catch (e) { /* not a message */ }
+    }
+    const packed = asPacked(bytes, start, end);
+    if (packed) out.packed = packed;
+    out.primary = out.nested ? `${out.nested.length} field${out.nested.length === 1 ? '' : 's'}`
+      : (text && text.printable ? text.text : `${out.length} bytes`);
+  } else if (field.wireType === 3) {
+    out.nested = field.group.map((f) => interpret(bytes, f, depth + 1));
+    out.primary = `group, ${out.nested.length} field${out.nested.length === 1 ? '' : 's'}`;
+  }
+  return out;
+}
+
+function decodeMessage(bytes) {
+  const res = decodeFields(bytes, 0, bytes.length, 0);
+  return {
+    fields: res.fields.map((f) => interpret(bytes, f, 0)),
+    nonMinimal: res.nonMinimal,
+  };
+}
+
+/* Re-encode what was decoded. Canonical output — minimal varints, fields in the
+   order they appeared — so matching the input byte for byte proves the decode
+   was complete AND that the input was itself canonical. Where they differ, the
+   input used non-minimal varints, which is worth telling the reader. */
+function encodeField(field, bytes) {
+  const out = [];
+  out.push(...encodeVarint((BigInt(field.number) << 3n) | BigInt(field.wireType)));
+  if (field.wireType === 0) out.push(...encodeVarint(field.varint));
+  else if (field.wireType === 1 || field.wireType === 5) {
+    for (let i = field.dataStart; i < field.dataEnd; i++) out.push(bytes[i]);
+  } else if (field.wireType === 2) {
+    const len = field.payload.end - field.payload.start;
+    out.push(...encodeVarint(BigInt(len)));
+    for (let i = field.payload.start; i < field.payload.end; i++) out.push(bytes[i]);
+  } else if (field.wireType === 3) {
+    for (const sub of field.group) out.push(...encodeField(sub, bytes));
+    out.push(...encodeVarint((BigInt(field.number) << 3n) | 4n));
+  }
+  return out;
+}
+
+function reencode(fields, bytes) {
+  const out = [];
+  for (const f of fields) out.push(...encodeField(f, bytes));
+  return Uint8Array.from(out);
+}
+
+/* ---- input parsing ------------------------------------------------------- */
+
+function parseBytes(text, mode = 'auto') {
+  const raw = String(text).trim();
+  if (!raw) throw new Error('Paste some bytes');
+  const hexish = raw.replace(/0x/gi, '').replace(/\\x/gi, '').replace(/[\s,;:]/g, '');
+  const looksHex = /^[0-9a-f]+$/i.test(hexish) && hexish.length % 2 === 0;
+  const b64ish = raw.replace(/\s/g, '');
+  const looksB64 = /^[A-Za-z0-9+/_-]+={0,2}$/.test(b64ish) && b64ish.length % 4 === 0;
+  const use = mode === 'auto' ? (looksHex ? 'hex' : looksB64 ? 'base64' : null) : mode;
+  if (use === 'hex') {
+    if (!/^[0-9a-f]*$/i.test(hexish)) throw new Error('That is not hex');
+    if (hexish.length % 2) throw new Error('Hex needs an even number of digits');
+    const out = new Uint8Array(hexish.length / 2);
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(hexish.substr(i * 2, 2), 16);
+    return out;
+  }
+  if (use === 'base64') {
+    const normal = b64ish.replace(/-/g, '+').replace(/_/g, '/');
+    let bin;
+    try {
+      bin = atob(normal);
+    } catch (e) {
+      throw new Error('That is not valid base64');
+    }
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  throw new Error('Could not tell whether that is hex or base64 — pick one above');
+}
+
+/* ---- schema inference ---------------------------------------------------- */
+
+function inferProto(fields, messageName = 'Message', depth = 0, out = []) {
+  const lines = [];
+  const byNumber = new Map();
+  for (const f of fields) {
+    if (!byNumber.has(f.number)) byNumber.set(f.number, []);
+    byNumber.get(f.number).push(f);
+  }
+  const submessages = [];
+  for (const [number, list] of [...byNumber.entries()].sort((a, b) => a[0] - b[0])) {
+    const f = list[0];
+    const repeated = list.length > 1;
+    let type;
+    let comment = '';
+    if (f.wireType === 0) {
+      type = f.alternatives.bool !== undefined ? 'bool' : 'int64';
+      comment = f.alternatives.bool !== undefined
+        ? ' // 0 or 1: could be bool, or any number'
+        : ' // could be int32/64, uint32/64, sint32/64 or an enum';
+    } else if (f.wireType === 1) {
+      type = 'double';
+      comment = ' // or fixed64 / sfixed64';
+    } else if (f.wireType === 5) {
+      type = 'float';
+      comment = ' // or fixed32 / sfixed32';
+    } else if (f.wireType === 3) {
+      type = `Group${number}`;
+      comment = ' // deprecated group';
+      submessages.push({ name: `Group${number}`, fields: f.nested || [] });
+    } else if (f.nested && (!f.textLooksReal || !f.alternatives.string)) {
+      type = `Field${number}`;
+      submessages.push({ name: `Field${number}`, fields: f.nested });
+    } else if (f.alternatives.string !== undefined && f.textLooksReal) {
+      type = 'string';
+      comment = f.nested ? ' // also parses as a message' : '';
+    } else if (f.packed && f.packed.varint) {
+      type = 'int64';
+      comment = ' // packed repeated';
+      lines.push(`  repeated ${type} field_${number} = ${number} [packed = true];${comment}`);
+      continue;
+    } else {
+      type = 'bytes';
+    }
+    lines.push(`  ${repeated ? 'repeated ' : ''}${type} field_${number} = ${number};${comment}`);
+  }
+  const body = [`message ${messageName} {`];
+  for (const sub of submessages) {
+    const subLines = inferProto(sub.fields, sub.name, depth + 1);
+    body.push(...subLines.split('\n').map((l) => (l ? `  ${l}` : l)));
+  }
+  body.push(...lines, '}');
+  return body.join('\n');
+}
+
+const SAMPLES = [
+  {
+    name: 'A mixed message',
+    hex: '0a06736c69707079102a1a100a0b536c69707079204c61627310ea0f2206030e9f01dd142801316e861bf0f9210940389901450000c03f4a0400ff1080',
+    note: 'string, varint, a nested message, a packed repeated field, a bool, a double, a zigzag sint64, a float and a run of raw bytes',
+  },
+  {
+    name: 'Negative int32, the classic',
+    hex: '08ffffffffffffffffff01',
+    note: 'a negative int32 is sign-extended to 64 bits before encoding, so -1 costs ten bytes. Read it as uint64 and it is 18446744073709551615.',
+  },
+  { name: 'Nested six deep', hex: '0a160a120a0e0a0a0a060a02100010011002100310041005', note: '' },
+  { name: 'A group (deprecated)', hex: '0b10071a0268690c', note: 'wire types 3 and 4, which predate nested messages' },
+  { name: 'Base64 input', hex: 'CgZzbGlwcHkQKg==', note: 'the same bytes, pasted as base64', base64: true },
+];
+
+/* ==== UI ==== */
+
+const $ = (id) => document.getElementById(id);
+let currentBytes = null;
+let currentDecode = null;
+
+function decodeAndRender() {
+  const err = $('parse-error');
+  let bytes;
+  try {
+    bytes = parseBytes($('input-text').value, $('mode-select').value);
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+    $('tree-host').innerHTML = '';
+    $('hex-host').innerHTML = '';
+    $('proto-out').textContent = '';
+    $('stat-host').innerHTML = '';
+    $('roundtrip-note').textContent = '';
+    return;
+  }
+  currentBytes = bytes;
+  try {
+    currentDecode = decodeMessage(bytes);
+    err.style.display = 'none';
+  } catch (e) {
+    err.textContent = `Not valid protobuf: ${e.message}`;
+    err.style.display = 'block';
+    currentDecode = null;
+    renderHex();
+    $('tree-host').innerHTML = '';
+    $('proto-out').textContent = '';
+    $('stat-host').innerHTML = '';
+    $('roundtrip-note').textContent = '';
+    return;
+  }
+  renderTree();
+  renderHex();
+  renderStats();
+  $('proto-out').textContent = inferProto(currentDecode.fields);
+}
+
+function countFields(fields) {
+  let n = 0;
+  let depth = 1;
+  for (const f of fields) {
+    n += 1;
+    if (f.nested) {
+      const sub = countFields(f.nested);
+      n += sub.count;
+      depth = Math.max(depth, 1 + sub.depth);
+    }
+  }
+  return { count: n, depth };
+}
+
+function renderStats() {
+  const { count, depth } = countFields(currentDecode.fields);
+  const top = currentDecode.fields.length;
+  const tiles = [
+    ['Bytes', String(currentBytes.length)],
+    ['Top-level fields', String(top)],
+    ['Fields in total', String(count)],
+    ['Nesting depth', String(depth)],
+    ['Wire types used', [...new Set(currentDecode.fields.map((f) => WIRE_TYPES[f.wireType].name))].join(', ')],
+    ['Non-minimal varints', String(currentDecode.nonMinimal)],
+  ];
+  $('stat-host').innerHTML = tiles.map(([label, value]) => `
+    <div class="net-tile">
+      <div class="net-tile-label">${label}</div>
+      <div class="net-tile-value mono">${value}</div>
+    </div>`).join('');
+
+  const re = reencode(currentDecode.fields.map(stripInterp), currentBytes);
+  const same = re.length === currentBytes.length && re.every((b, i) => b === currentBytes[i]);
+  $('roundtrip-note').innerHTML = same
+    ? `<span class="pb-ok">Re-encoded to the same ${re.length} bytes.</span> Every byte was
+       accounted for, and the input uses canonical minimal varints.`
+    : `<span class="pb-warn">Re-encoding gives ${re.length} bytes, not ${currentBytes.length}.</span>
+       The decode covered the whole input, but the original is not canonical — usually a
+       non-minimal varint, which a standard encoder never produces.`;
+}
+
+// the re-encoder wants the raw field records, not the interpreted ones
+function stripInterp(f) {
+  const base = {
+    number: f.number, wireType: f.wireType, headerStart: f.headerStart,
+    dataStart: f.dataStart, dataEnd: f.dataEnd, varint: f.varint,
+    payload: f.payload, fixed: f.fixed,
+  };
+  if (f.wireType === 3) base.group = (f.nested || []).map(stripInterp);
+  return base;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function fieldRow(f, depth) {
+  const wt = WIRE_TYPES[f.wireType];
+  const showAlts = $('alt-check').checked;
+  const alts = Object.entries(f.alternatives || {})
+    .filter(([k]) => showAlts || k === 'string')
+    .map(([k, v]) => `<span class="pb-alt"><em>${k}</em> ${escapeHtml(
+      typeof v === 'string' && v.length > 120 ? `${v.slice(0, 120)}…` : v)}</span>`)
+    .join('');
+  const packed = f.packed && showAlts
+    ? Object.entries(f.packed).map(([k, v]) => `<span class="pb-alt"><em>packed ${k}</em> [${v.slice(0, 12).join(', ')}${v.length > 12 ? ', …' : ''}]</span>`).join('')
+    : '';
+  const kids = (f.nested && $('nested-check').checked)
+    ? `<div class="pb-children">${f.nested.map((k) => fieldRow(k, depth + 1)).join('')}</div>` : '';
+  return `<div class="pb-field" data-from="${f.headerStart}" data-to="${f.dataEnd}">
+      <div class="pb-head">
+        <span class="pb-num">${f.number}</span>
+        <span class="pb-wire">${wt.name}</span>
+        <span class="pb-primary">${escapeHtml(f.primary)}</span>
+      </div>
+      ${alts || packed ? `<div class="pb-alts">${alts}${packed}</div>` : ''}
+      ${kids}
+    </div>`;
+}
+
+function renderTree() {
+  $('tree-host').innerHTML = currentDecode.fields.map((f) => fieldRow(f, 0)).join('');
+}
+
+function renderHex() {
+  if (!currentBytes) { $('hex-host').innerHTML = ''; return; }
+  const cells = [];
+  for (let i = 0; i < currentBytes.length; i++) {
+    cells.push(`<span class="pb-byte" data-i="${i}">${currentBytes[i].toString(16).padStart(2, '0')}</span>`);
+  }
+  $('hex-host').innerHTML = cells.join('');
+}
+
+$('tree-host').addEventListener('mouseover', (e) => {
+  const field = e.target.closest('.pb-field');
+  document.querySelectorAll('.pb-byte.hl').forEach((b) => b.classList.remove('hl'));
+  if (!field) return;
+  const from = Number(field.dataset.from);
+  const to = Number(field.dataset.to);
+  document.querySelectorAll('.pb-byte').forEach((b) => {
+    const i = Number(b.dataset.i);
+    if (i >= from && i < to) b.classList.add('hl');
+  });
+});
+
+$('wire-table').innerHTML = `<thead><tr><th>Type</th><th>Name</th><th>Payload</th><th>Used for</th></tr></thead><tbody>${
+  Object.entries(WIRE_TYPES).map(([n, w]) => `<tr>
+    <td>${n}</td><td>${w.name}</td>
+    <td>${n === '0' ? 'a varint' : n === '1' ? '8 bytes' : n === '2' ? 'length, then bytes'
+    : n === '5' ? '4 bytes' : 'until the matching end tag'}</td>
+    <td>${w.meanings}</td></tr>`).join('')}</tbody>`;
+
+$('sample-select').innerHTML = '<option value="">— load a sample —</option>'
+  + SAMPLES.map((s, i) => `<option value="${i}">${s.name}</option>`).join('');
+$('sample-select').addEventListener('change', (e) => {
+  const s = SAMPLES[Number(e.target.value)];
+  if (!s) return;
+  $('input-text').value = s.hex;
+  $('mode-select').value = 'auto';
+  decodeAndRender();
+  e.target.value = '';
+});
+
+['input-text'].forEach((id) => $(id).addEventListener('input', decodeAndRender));
+['mode-select', 'nested-check', 'alt-check'].forEach((id) =>
+  $(id).addEventListener('change', decodeAndRender));
+$('clear-btn').addEventListener('click', () => {
+  $('input-text').value = '';
+  decodeAndRender();
+});
+
+/* ---- headless hook ---- */
+
+window.__protobuf = {
+  parseBytes, decodeMessage, decodeFields, readVarint, encodeVarint, zigzagDecode,
+  toSigned64, reencode, inferProto, interpret, asPacked, asText, WIRE_TYPES,
+  decodeHex(hex) {
+    const bytes = parseBytes(hex, 'hex');
+    return decodeMessage(bytes);
+  },
+  render(text) { $('input-text').value = text; decodeAndRender(); return currentDecode; },
+};
+
+/* ---- boot ---- */
+
+$('input-text').value = SAMPLES[0].hex;
+decodeAndRender();
+</script>
+<!-- Slippy Deck: floating Slippy TV + jukebox player. Renders nothing unless admin.slippylabs.com/whoami confirms a signed-in account. -->
+<script defer src="https://slippylabs.com/deck/deck.js"></script>
+<!-- Slippy Labs sitewide privacy link. Self-contained on purpose: these sites
+     share no CSS, so it carries its own styles and inherits the page's text
+     colour instead of assuming a palette. position/z-index are load bearing --
+     the HUD theme's .starfield/.scanlines are fixed at z-index 0-1 and would
+     paint straight over an unpositioned footer.
+     The .page-wrap trim below is what keeps the bar on the first screen. -->
+<div class="sl-legal"><a href="https://slippylabs.com/privacy.html">Privacy</a></div>
+<style>
+.sl-legal{box-sizing:border-box;position:relative;z-index:3;height:64px;display:flex;align-items:center;justify-content:center;margin:0;padding:0 12px;font-family:"Consolas","SFMono-Regular",Menlo,Monaco,"Courier New",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.5}
+.sl-legal a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px}
+.sl-legal a:hover,.sl-legal a:focus-visible{text-decoration:underline;opacity:1}
+/* This page centres .page-wrap at min-height:100vh, which would push the bar a
+   whole screen below the fold. Give back exactly the bar height instead of
+   adding a scrollbar to a page that had none. */
+.page-wrap{min-height:calc(100vh - 64px)}
+</style>
+</body>
+</html>
