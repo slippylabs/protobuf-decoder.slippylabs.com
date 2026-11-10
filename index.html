@@ -24,8 +24,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="https://slippylabs.com/ui/ui.css?v=6">
-<link rel="stylesheet" href="https://slippylabs.com/ui/legacy.css?v=4">
+<link rel="stylesheet" href="https://slippylabs.com/ui/ui.css?v=7">
+<link rel="stylesheet" href="https://slippylabs.com/ui/legacy.css?v=5">
 <script>/* perf-lite: drop blend/blur effects on low-power devices. ?fx=lite or ?fx=full to override (persisted). */
 (function(){try{var k="slippy-fx",m=location.search.match(/[?&]fx=(lite|full)/),v=m?m[1]:localStorage.getItem(k);if(m)localStorage.setItem(k,v);if(v==="lite"||(v!=="full"&&(navigator.hardwareConcurrency||8)<=2))document.documentElement.classList.add("perf-lite");}catch(e){}})();</script>
 </head>
@@ -59,7 +59,7 @@
 
     
 
-    <p class="ui-crumbs"><a href="https://slippylabs.com/">Slippy Labs</a> / <a href="https://projects.slippylabs.com/">Projects</a> / Protobuf Wire Decoder</p>
+    <nav class="ui-backrow" aria-label="Back and home"><a class="ui-backbtn" href="https://projects.slippylabs.com/" data-ui-back title="Back to Projects"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg><span>Back</span></a><a class="ui-backbtn" href="https://slippylabs.com/" title="Slippy Labs home"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 10 3.5l7 6V17a1 1 0 0 1-1 1h-3.5v-5h-5v5H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></a><p class="ui-crumbs"><a href="https://slippylabs.com/">Slippy Labs</a> / <a href="https://projects.slippylabs.com/">Projects</a> / Protobuf Wire Decoder</p></nav>
 
     
 
@@ -140,7 +140,7 @@
       </div>
     </div>
 
-    <a href="https://projects.slippylabs.com/" class="hud-btn">← Back to Archive</a>
+    <nav class="ui-backrow foot" aria-label="Back and home"><a class="ui-backbtn" href="https://projects.slippylabs.com/" data-ui-back title="Back to Projects"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg><span>Back to Projects</span></a><a class="ui-backbtn" href="https://slippylabs.com/" title="Slippy Labs home"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 10 3.5l7 6V17a1 1 0 0 1-1 1h-3.5v-5h-5v5H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></a></nav>
   </div>
   <footer class="ui-foot">
     <a href="https://slippylabs.com/">Slippy Labs home</a>
@@ -791,6 +791,6 @@ decodeAndRender();
 .page-wrap{min-height:calc(100vh - 64px)}
 </style>
 <script src="https://slippylabs.com/ui/search-index.js?v=2"></script>
-<script defer src="https://slippylabs.com/ui/ui.js?v=6"></script>
+<script defer src="https://slippylabs.com/ui/ui.js?v=7"></script>
 </body>
 </html>
